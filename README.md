@@ -11,11 +11,11 @@
 
 ### 架构概览
 
-| 节点 | IP | 规格 | 职责 |
-|------|-----|------|------|
-| CI 节点 | 192.168.255.140 | 4C/4G | Jenkins + Harbor + Docker |
-| K8s Master | 192.168.255.141 | 2C/2G | 集群控制面 |
-| K8s Worker | 192.168.255.142 | 4C/8G | 业务 Pod 运行 |
+| 节点 | 职责 |
+|------|------|
+| CI 节点 | Jenkins + Harbor + Docker |
+| K8s Master | 集群控制面 |
+| K8s Worker | 业务 Pod 运行 |
 
 ### 流水线流程
 
@@ -40,15 +40,20 @@ GitHub Push → Jenkins 拉取代码 → Maven 构建
 
 ```
 cicd-pipeline/
-├── README.md
-├── scripts/
-│   └── initEnv.sh           # 环境初始化脚本
 ├── k8s/
-│   ├── middleware.yml        # MySQL / Redis / Nacos StatefulSet
-│   └── services.yml         # Gateway / Auth / System Deployment
-├── docker/
-│   └── Dockerfile.*         # 各服务 Dockerfile（含多阶段构建）
-└── Jenkinsfile              # 完整流水线脚本
+│   └── ruoyi-k8s/
+│       ├── 00-namespace-and-config.yaml 
+│       ├── 01-mysql.yaml                 
+│       ├── 02-redis.yaml                
+│       ├── 03-nacos.yaml               
+│       ├── 04-microservices.yaml         
+│       ├── 05-nginx.yaml                 
+│       ├── apply.sh                      
+│       ├── README.md                     
+│       └── test.yml                    
+├── shells/
+│   └── initEnv.sh                     
+└── Jenkinsfile     
 ```
 
 ---
@@ -60,10 +65,10 @@ cicd-pipeline/
 
 ### 架构概览
 
-| 节点 | IP | 规格 | 职责 |
-|------|-----|------|------|
-| 监控主机 | 192.168.255.150 | 2C/2G/40G | Prometheus + Grafana + Alertmanager（Docker 部署） |
-| K8s 集群 | .140 / .141 / .142 | — | 被监控对象（Node Exporter DaemonSet） |
+| 命名空间 | 职责 |
+|------|------|
+| prom | Prometheus + Grafana + Alertmanager（Docker 部署） |
+| monitoring | 被监控对象（Node Exporter DaemonSet） |
 
 ### 采集体系
 
@@ -102,26 +107,38 @@ cicd-pipeline/
 
 ```
 monitoring/
-├── README.md
-├── prometheus.yml           # 主配置（scrape_configs）
-├── alertmanager.yml         # 告警路由 + 钉钉 Webhook
-├── rules/
-│   ├── node-alerts.yml
-│   ├── k8s-alerts.yml
-│   ├── mysql-alerts.yml
-│   └── redis-alerts.yml
-└── k8s/
-    ├── kube-state-metrics.yml
-    ├── node-exporter.yml
-    ├── mysql-exporter.yml
-    └── redis-exporter.yml
+├── monitor/
+│   ├── blackbox-exporter.yml
+│   ├── kube-state-metrics.yml
+│   ├── mysql-exporter.yml
+│   ├── node-exporter.yml
+│   └── redis-exporter.yml
+├── prom/
+│   ├── blackbox/
+│   ├── dingtalk/
+│   │   └── config.yml
+│   ├── grafana/
+│   │   └── provisioning/
+│   ├── alertmanager.yml
+│   ├── blackbox.yml
+│   ├── docker-compose.yml
+│   ├── k8s-monitor.yml
+│   ├── prom.yml
+│   ├── prometheus.yml
+│   └── update-conf.sh
+└── rules/
+    ├── k8s-alerts.yml
+    ├── mysql-alerts.yml
+    ├── node_alerts.yml
+    ├── redis-alerts.yml
+    └── ruoyi-alerts.yml
 ```
 
 ---
 
 ## 运行截图
 
-> 部署完成后补充：Prometheus Targets 全 UP 截图、Grafana Dashboard 截图、钉钉告警推送截图
+> 部分截图
 ![1781968552498](image/README/1781968552498.png)
 ![1781968594209](image/README/1781968594209.png)
 ![1781969046276](image/README/1781969046276.png)
