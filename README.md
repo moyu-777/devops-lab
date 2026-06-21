@@ -6,6 +6,8 @@
 
 ## 项目一：CI/CD 自动化构建部署平台
 
+[点击查看详细部署文档](./cicd-pipeline/CI_CD自动部署RuoYiCloud文档.md)
+
 **时间：2026.01 — 2026.03**  
 **技术栈：** Jenkins · Docker · Harbor · Kubernetes · Shell
 
@@ -59,6 +61,7 @@ cicd-pipeline/
 ---
 
 ## 项目二：Prometheus 企业级监控告警系统
+[点击查看详细部署文档](./monitoring/自动化监控告警平台部署文档.md)
 
 **时间：2026.04 — 2026.05**  
 **技术栈：** Prometheus · Grafana · Alertmanager · Node Exporter · kube-state-metrics · mysqld-exporter · redis-exporter
