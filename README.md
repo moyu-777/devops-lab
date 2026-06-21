@@ -64,10 +64,10 @@ cicd-pipeline/
 **技术栈：** Prometheus · Grafana · Alertmanager · Node Exporter · kube-state-metrics · mysqld-exporter · redis-exporter
 
 ### 架构概览
-
+所有服务均已上k8s集群
 | 命名空间 | 职责 |
 |------|------|
-| prom | Prometheus + Grafana + Alertmanager（Docker 部署） |
+| prom | Prometheus + Grafana + Alertmanager |
 | monitoring | 被监控对象（Node Exporter DaemonSet） |
 
 ### 采集体系
