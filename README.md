@@ -8,6 +8,8 @@
 
 [点击查看详细部署文档](./cicd-pipeline/CI_CD自动部署RuoYiCloud文档.md)
 
+[RuoYi微服务项目仓库](https://github.com/moyu-777/ruoyi-cloud)
+
 **时间：2026.01 — 2026.03**  
 **技术栈：** Jenkins · Docker · Harbor · Kubernetes · Shell
 
