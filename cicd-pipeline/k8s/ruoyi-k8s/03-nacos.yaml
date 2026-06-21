@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ruoyi-nacos-logs
+  namespace: ruoyi-cloud
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: nfs-client  # 按需启用
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ruoyi-nacos
+  namespace: ruoyi-cloud
+spec:
+  serviceName: ruoyi-nacos
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ruoyi-nacos
+  template:
+    metadata:
+      labels:
+        app: ruoyi-nacos
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: worker
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:1.35
+          command:
+            - sh
+            - -c
+            - until nc -z ruoyi-mysql 3306; do echo "waiting for mysql..."; sleep 3; done
+      containers:
+        - name: nacos
+          # application.properties 已由 Dockerfile COPY 打包进镜像
+          image: 192.168.255.140:80/ruoyi-cloud/ruoyi-nacos:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8848
+              name: http
+            - containerPort: 9848
+              name: client-rpc
+            - containerPort: 9849
+              name: raft-rpc
+          env:
+            - name: MODE
+              value: "standalone"
+            - name: NACOS_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ruoyi-nacos-secret
+                  key: NACOS_AUTH_TOKEN
+            - name: NACOS_AUTH_IDENTITY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ruoyi-nacos-secret
+                  key: NACOS_AUTH_IDENTITY_KEY
+            - name: NACOS_AUTH_IDENTITY_VALUE
+              valueFrom:
+                secretKeyRef:
+                  name: ruoyi-nacos-secret
+                  key: NACOS_AUTH_IDENTITY_VALUE
+          volumeMounts:
+            - name: nacos-logs
+              mountPath: /home/nacos/logs
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /nacos/actuator/health
+              port: 8848
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 6
+      volumes:
+        - name: nacos-logs
+          persistentVolumeClaim:
+            claimName: ruoyi-nacos-logs
+
+---
+# Headless Service（StatefulSet DNS 解析用）
+apiVersion: v1
+kind: Service
+metadata:
+  name: ruoyi-nacos-headless
+  namespace: ruoyi-cloud
+spec:
+  clusterIP: None
+  selector:
+    app: ruoyi-nacos
+  ports:
+    - name: http
+      port: 8848
+    - name: client-rpc
+      port: 9848
+    - name: raft-rpc
+      port: 9849
+
+---
+# ClusterIP Service（微服务注册发现用）
+apiVersion: v1
+kind: Service
+metadata:
+  name: ruoyi-nacos
+  namespace: ruoyi-cloud
+spec:
+  selector:
+    app: ruoyi-nacos
+  ports:
+    - name: http
+      port: 8848
+      targetPort: 8848
+    - name: client-rpc
+      port: 9848
+      targetPort: 9848
+    - name: raft-rpc
+      port: 9849
+      targetPort: 9849
+  type: ClusterIP

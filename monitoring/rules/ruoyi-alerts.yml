@@ -1,0 +1,65 @@
+groups:
+  - name: ruoyi-jvm
+    rules:
+      # JVM 堆内存使用率 > 85%
+      - alert: JvmHeapHighUsage
+        expr: |
+          (jvm_memory_used_bytes{area="heap"} /
+           jvm_memory_max_bytes{area="heap"}) * 100 > 85
+        for: 2m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "{{ $labels.app }} JVM 堆内存告警"
+          description: "当前堆使用率 {{ $value | printf \"%.1f\" }}%，持续 2 分钟"
+
+      # HTTP 请求 P99 延迟 > 2s
+      - alert: HttpSlowResponse
+        expr: |
+          histogram_quantile(0.99,
+            rate(http_server_requests_seconds_bucket[5m])
+          ) > 2
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "接口响应慢 - {{ $labels.uri }}"
+          description: "P99 延迟 {{ $value | printf \"%.2f\" }}s"
+
+  - name: node-resources
+    rules:
+      # CPU 使用率 > 90%
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance)
+            (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "主机 {{ $labels.instance }} CPU 使用率过高"
+          description: "当前 CPU {{ $value | printf \"%.1f\" }}%"
+
+      # 磁盘使用率 > 85%
+      - alert: DiskUsageHigh
+        expr: |
+          (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs"}
+               / node_filesystem_size_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁盘告警 {{ $labels.instance }}:{{ $labels.mountpoint }}"
+          description: "磁盘使用 {{ $value | printf \"%.1f\" }}%"
+  - name: service-status
+    rules:
+      # 服务是否挂掉
+      - alert: RuoyiServiceDown
+        expr: probe_success{job="blackbox-ruoyi"} == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "RuoYi 服务不可用"
+          description: "接口 {{ $labels.instance }} 连续1分钟无法访问"

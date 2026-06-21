@@ -1,0 +1,99 @@
+global:
+  scrape_interval: 15s          # 采集频率
+  evaluation_interval: 15s      # 告警规则评估频率
+  external_labels:
+    env: 'production'
+    region: 'cn-east'
+
+# 引入告警规则文件
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# Alertmanager 地址
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+
+  - job_name: 'blackbox-ruoyi'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]  # 默认模块
+    static_configs:
+      - targets:
+        - http://blackbox-exporter.prom.svc.cluster.local:9115/manage/prometheus
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: __address__
+        replacement: 'blackbox-exporter.monitoring.svc.cluster.local:9115'   # 你的Blackbox Exporter地址
+
+
+  # ── RuoYi Spring Boot ──
+  - job_name: 'ruoyi-backend'
+    metrics_path: /manage/prometheus
+    params:
+      module: [http_2xx]
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['192.168.255.162:30080']
+        labels:
+          app: 'ruoyi'
+          env: 'prod'
+          cluster: 'ruoyi-k8s'
+
+  # ── Prometheus 自监控 ──
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ── MySQL ──
+  - job_name: 'mysql-exporter'
+    static_configs:
+      - targets: ['192.168.255.142:31904']
+
+  # ── Redis ──
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['192.168.255.142:31921']
+
+  # k8s
+  - job_name: 'kube-state-metrics'
+    static_configs:
+    - targets:
+      - 'kube-state-metrics-svc.monitoring.svc.cluster.local:8080'
+      labels:
+        env: 'k8s'
+        cluster: 'ruoyi-k8s'
+  # k8s-node
+  - job_name: 'node-exporter'
+    static_configs:
+    - targets:
+      - '192.168.255.140:9100'
+      labels:
+        node: 'ci'          # 直接打上 node 标签
+        env: 'jenkins'
+    - targets:
+      - '192.168.255.141:9100'
+      labels:
+        node: 'k8s-master'          # 直接打上 node 标签
+        env: 'k8s'
+        cluster: 'ruoyi-k8s'
+    - targets:
+      - '192.168.255.142:9100'
+      labels:
+        node: 'k8s-worker'          # 对应 Grafana 变量里选的值
+        env: 'k8s'
+        cluster: 'ruoyi-k8s'
+  # ── cAdvisor 容器监控 ──
+  # - job_name: 'cadvisor'
+  #   scrape_interval: 15s
+  #   static_configs:
+  #     - targets:
+  #         - '192.168.255.162:8080'   # worker 节点
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       regex: '([^:]+).*'
+  #       target_label: instance

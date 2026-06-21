@@ -1,0 +1,65 @@
+# 1. 创建 Secret 存储连接信息
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-exporter-config
+  namespace: monitoring   # 改成你实际的 namespace
+type: Opaque
+stringData:
+  .my.cnf: |
+    [client]
+    host=ruoyi-mysql.ruoyi-cloud.svc.cluster.local
+    port=3306
+    user=exporter
+    password=password
+---
+# mysql-exporter.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-exporter
+  namespace: monitoring
+  labels:
+    app: mysql-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-exporter
+  template:
+    metadata:
+      labels:
+        app: mysql-exporter
+    spec:
+      containers:
+      - name: mysql-exporter
+        image: prom/mysqld-exporter:v0.15.1
+        args:
+        - "--config.my-cnf=/etc/mysql/.my.cnf"
+        - "--mysqld.address=ruoyi-mysql.ruoyi-cloud.svc.cluster.local:3306"
+        volumeMounts:
+        - name: mysql-config
+          mountPath: /etc/mysql
+          readOnly: true
+        ports:
+        - containerPort: 9104
+          name: metrics
+      volumes:
+      - name: mysql-config
+        secret:
+          secretName: mysql-exporter-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-exporter-svc
+  namespace: monitoring
+spec:
+  type: NodePort
+  selector:
+    app: mysql-exporter
+  ports:
+  - name: metrics
+    port: 9104
+    targetPort: 9104
+    nodePort: 31904     # 固定端口，外部 Prometheus 用这个

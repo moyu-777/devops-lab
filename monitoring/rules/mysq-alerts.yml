@@ -1,0 +1,29 @@
+groups:
+- name: mysql_rules      # 新增
+  rules:
+    - alert: MySQLDown
+      expr: mysql_up == 0
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: "MySQL 宕机"
+        description: "{{ $labels.instance }} MySQL 无法连接"
+    
+    - alert: MySQLSlaveNotRunning
+      expr: mysql_slave_status_slave_sql_running == 0
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: "MySQL 主从同步异常"
+        description: "{{ $labels.instance }} SQL线程停止"
+    
+    - alert: MySQLSlaveDelay
+      expr: mysql_slave_status_seconds_behind_master > 30
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "MySQL 主从延迟过大"
+        description: "{{ $labels.instance }} 延迟 {{ $value }} 秒"

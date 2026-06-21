@@ -1,0 +1,37 @@
+global:
+  resolve_timeout: 5m        # 告警恢复后等待多久发送 resolved 消息
+
+route:
+  group_by: ['severity']   # 同一实例的告警合并发一条
+  group_wait: 30s            # 同一组第一条告警等待 30s，方便合并
+  group_interval: 5m         # 同一组后续告警间隔
+  repeat_interval: 1h        # 告警未恢复时重复通知间隔
+  receiver: 'dingtalk'       # 默认接收者
+
+  routes:
+    # critical 级别单独路由
+    - match:
+        severity: critical
+      receiver: 'dingtalk'
+      repeat_interval: 30m   # 严重告警 30 分钟重复一次
+
+receivers:
+  # 钉钉（走 adapter）
+  - name: 'dingtalk'
+    webhook_configs:
+      - url: 'http://dingtalk-webhook:8060/dingtalk/webhook1/send'
+        send_resolved: true  # 告警恢复时也发通知
+
+  # 企业微信（直接 webhook）
+  - name: 'wecom'
+    webhook_configs:
+      - url: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY'
+        send_resolved: true
+
+inhibit_rules:
+  # critical 触发时抑制同实例的 warning，防止刷屏
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['instance']

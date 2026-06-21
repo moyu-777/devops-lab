@@ -1,0 +1,43 @@
+groups:
+  - name: node_alerts
+    rules:
+
+      # ① 实例宕机
+      - alert: InstanceDown
+        expr: up{job="node-exporter"} == 0
+        for: 10s          # 持续 1 分钟才触发，避免抖动
+        labels:
+          severity: critical
+        annotations:
+          summary: "实例 {{ $labels.instance }} 宕机"
+          description: "{{ $labels.job }} / {{ $labels.instance }} 已离线超过 1 分钟"
+
+      # ② CPU 使用率 > 80%
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 50
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU 告警 {{ $labels.instance }}"
+          description: "CPU 使用率 {{ printf \"%.1f\" $value }}%，超过 50% 已持续 1 分钟"
+
+      # ③ 内存可用率 < 10%
+      - alert: LowMemory
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 30
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存不足 {{ $labels.instance }}"
+          description: "可用内存 {{ printf \"%.1f\" $value }}%，低于 30%"
+
+      # ④ 磁盘剩余空间 < 15%
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 35
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁盘空间告警 {{ $labels.instance }}"
+          description: "/ 分区剩余 {{ printf \"%.1f\" $value }}%"

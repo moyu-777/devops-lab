@@ -1,0 +1,29 @@
+groups:
+- name: redis_rules      # 新增
+  rules:
+    - alert: RedisDown
+      expr: redis_up == 0
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: "Redis 宕机"
+        description: "{{ $labels.instance }} Redis 无法连接"
+    
+    - alert: RedisMemoryHigh
+      expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Redis 内存使用率过高"
+        description: "{{ $labels.instance }} 内存使用率 {{ $value }}%"
+    
+    - alert: RedisConnections
+      expr: redis_connected_clients > 100
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Redis 连接数过多"
+        description: "{{ $labels.instance }} 当前连接数 {{ $value }}"

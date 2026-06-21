@@ -1,0 +1,7 @@
+targets:
+  webhook1:
+    url: https://oapi.dingtalk.com/robot/send?access_token=523e4a28c25501342a331a698ff63cc7cceaa910bf6a98008009c8100ced7938
+    secret: SECfce4c0bcbdf02ef6679ff997d1437dd6c949d021b713165792721e20ba1fb930
+    message:
+      title: '{{ template "ding.link.title" . }}'
+      text: '{{ template "ding.link.content" . }}'

@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ruoyi-mysql-data
+  namespace: ruoyi-cloud
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: nfs-client  # 按需启用
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ruoyi-mysql
+  namespace: ruoyi-cloud
+spec:
+  serviceName: ruoyi-mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ruoyi-mysql
+  template:
+    metadata:
+      labels:
+        app: ruoyi-mysql
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: worker
+      initContainers:
+        - name: wait-for-nfs-data
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for existing MySQL data on NFS..."
+              for i in $(seq 1 90); do
+                # 核心判断：mysql 系统库目录存在 = 这是一个已初始化的数据目录
+                if [ -d /var/lib/mysql/mysql ]; then
+                  echo "✅ Found existing MySQL data dir. Skipping init."
+                  exit 0
+                fi
+                echo "⏳ [$i/90] /var/lib/mysql/mysql not found yet..."
+                sleep 2
+              done
+              # 超时后：打印实际内容帮助排查
+              echo "Current contents of /var/lib/mysql:"
+              ls -la /var/lib/mysql
+              echo "⚠️  No existing data found after timeout."
+              echo "If this is first deployment, this is normal - exiting 0."
+              exit 0   # ← 注意：exit 0，让 MySQL 正常初始化
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+      containers:
+        - name: mysql
+          # *.sql 初始化脚本已由 Dockerfile ADD 打包进镜像
+          image: 192.168.255.140:80/ruoyi-cloud/ruoyi-mysql:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3306
+          args:
+            - mysqld
+            - --innodb-buffer-pool-size=80M
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+            - --default-time-zone=+8:00
+            - --lower-case-table-names=1
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ruoyi-mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: ruoyi-mysql-secret
+                  key: MYSQL_DATABASE
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: ruoyi-mysql-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ruoyi-mysql
+  namespace: ruoyi-cloud
+spec:
+  selector:
+    app: ruoyi-mysql
+  ports:
+    - port: 3306
+      targetPort: 3306
+  type: ClusterIP
